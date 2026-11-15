@@ -4,8 +4,8 @@ import { type FormEvent, useEffect, useState } from 'react'
 import Image from 'next/image'
 import useSWR from 'swr'
 import {
-  ArrowLeft, ArrowRight, CheckCircle2, ClipboardList, FileImage, Home,
-  LoaderCircle, MapPin, MessageSquareQuote, Plus, Save, Send, ShieldCheck, Trash2, X,
+  ArrowLeft, ArrowRight, CheckCircle2, ClipboardList, FileImage, Home, Info,
+  LoaderCircle, MessageSquareQuote, Plus, Save, Send, ShieldCheck, Sparkles, Trash2, X,
 } from 'lucide-react'
 
 type Course = { ID_CURSO: string; CURSO: string; DIVISION: string; TURNO: string; ACTIVO?: string }
@@ -22,6 +22,18 @@ type PuntoCritico = {
   desafiosPersistentes: string
 }
 
+export type DetectedHotspot = {
+  x: number
+  y: number
+  category: 'cuidado' | 'transicion' | 'riesgo' | 'dialogo' | 'produccion'
+  weight: number
+}
+
+export type AutoScanResult = {
+  counts: Record<string, number>
+  hotspots: DetectedHotspot[]
+}
+
 type Props = {
   courses: Course[]
   student?: Student
@@ -32,11 +44,32 @@ type Props = {
 }
 
 const SECTORES_PLANO = [
-  { id: 'Teoría - Planta baja', titulo: 'Teoría', subtitulo: 'Planta baja' },
-  { id: 'Teoría - Planta alta', titulo: 'Teoría', subtitulo: 'Planta alta' },
-  { id: 'Talleres - Planta baja', titulo: 'Talleres', subtitulo: 'Planta baja' },
-  { id: 'Talleres - Planta alta', titulo: 'Talleres', subtitulo: 'Planta alta' },
-  { id: 'Patios - Espacios comunes', titulo: 'Patios', subtitulo: 'Espacios comunes' },
+  { id: 'Teoría - Planta baja', titulo: 'Teoría', subtitulo: 'Planta baja', img: '/planos/teoria-pb.jpg' },
+  { id: 'Teoría - Planta alta', titulo: 'Teoría', subtitulo: 'Planta alta', img: '/planos/teoria-pa.jpg' },
+  { id: 'Talleres - Planta baja', titulo: 'Talleres', subtitulo: 'Planta baja', img: '/planos/talleres-pb.jpg' },
+  { id: 'Talleres - Planta alta', titulo: 'Talleres', subtitulo: 'Planta alta', img: '/planos/talleres-pa.jpg' },
+  { id: 'Patios - Espacios comunes', titulo: 'Patios', subtitulo: 'Espacios comunes', img: '/planos/patios.jpg' },
+]
+
+export const ICONOS_CONVIVENCIA = [
+  { id: 'espacio_cuidado', emoji: '🟢', label: 'Espacio cuidado', category: 'Características de los espacios', desc: 'Lugar que percibimos como cuidado, agradable o que favorece el bienestar.' },
+  { id: 'espacio_transicion', emoji: '🟡', label: 'Espacio en transición', category: 'Características de los espacios', desc: 'Lugar que presenta cambios, situaciones variables o que puede mejorar.' },
+  { id: 'espacio_riesgo', emoji: '🔴', label: 'Espacio de riesgo o poco cuidado', category: 'Características de los espacios', desc: 'Lugar que presenta situaciones que generan malestar, riesgo o falta de cuidado.' },
+  { id: 'lugar_encuentro', emoji: '🤝', label: 'Lugar de encuentro', category: 'Características de los espacios', desc: 'Espacio donde las personas suelen encontrarse, compartir o permanecer juntas.' },
+  { id: 'espacio_dialogo', emoji: '💬', label: 'Espacio de diálogo', category: 'Características de los espacios', desc: 'Lugar donde se producen conversaciones, intercambios o posibilidades de diálogo.' },
+  { id: 'requiere_atencion', emoji: '⚠️', label: 'Situación que requiere atención', category: 'Características de los espacios', desc: 'Situación o espacio que consideramos necesario observar o abordar.' },
+  { id: 'presencia_adulta', emoji: '👀', label: 'Presencia frecuente de personas adultas', category: 'Características de los espacios', desc: 'Lugar donde habitualmente hay docentes, preceptores o equipo de conducción.' },
+  { id: 'territorio_digital', emoji: '📱', label: 'Territorio digital', category: 'Características de los espacios', desc: 'Espacio virtual relacionado con la convivencia: WhatsApp, redes sociales, plataformas.' },
+  { id: 'producciones_grafitis', emoji: '🎨', label: 'Producciones, grafitis o mensajes', category: 'Características de los espacios', desc: 'Mensajes, dibujos, carteles o grafitis significativos de la vida cotidiana.' },
+  { id: 'exclusion_tension', emoji: '🚫', label: 'Exclusión / Rivalidades / Tensiones', category: 'Relaciones y convivencia', desc: 'Situaciones donde aparecen conflictos, exclusión, rivalidades o malestares.' },
+  { id: 'cuidado', emoji: '❤️', label: 'Cuidado', category: 'Relaciones y convivencia', desc: 'Espacios o situaciones donde se manifiestan prácticas de cuidado.' },
+  { id: 'iniciativa_proyecto', emoji: '🌱', label: 'Iniciativa o proyecto', category: 'Relaciones y convivencia', desc: 'Proyectos, propuestas o iniciativas que favorecen la convivencia o los aprendizajes.' },
+  { id: 'espacio_cambiante', emoji: '🔄', label: 'Cambia según el momento', category: 'Relaciones y convivencia', desc: 'Lugares vividos de manera diferente según el momento del día o quiénes los habitan.' },
+  { id: 'familia', emoji: '🏠', label: 'Participación de la familia', category: 'Otros espacios', desc: 'Vínculo y participación de las familias en la comunidad escolar.' },
+  { id: 'barrio_comunidad', emoji: '🏘️', label: 'Barrio / Comunidad', category: 'Otros espacios', desc: 'Relación con el entorno barrial y comunitario.' },
+  { id: 'club_plaza', emoji: '⚽', label: 'Club, plaza u otros espacios', category: 'Otros espacios', desc: 'Espacios comunitarios, plazas o clubes frecuentes.' },
+  { id: 'circula_territorios', emoji: '↔️', label: 'Conflicto circula entre territorios', category: 'Otros espacios', desc: 'El conflicto continúa entre la escuela, redes, barrio o transporte.' },
+  { id: 'parada_colectivo', emoji: '🚌', label: 'Parada del colectivo', category: 'Otros espacios', desc: 'Entradas, salidas y trayectos en parada del colectivo.' },
 ]
 
 const PREGUNTAS_ANALISIS = [
@@ -55,6 +88,139 @@ const PREGUNTAS_ANALISIS = [
   { key: 'p13', text: '¿Qué espacios no aparecen en los mapas? ¿Qué lugares casi nadie mencionó? ¿Qué podría significar esa ausencia?' },
 ]
 
+/**
+ * Analizador visual automático de planos:
+ * Detecta las marcas de color colocadas sobre los planos blanco y negro
+ * y extrae sus coordenadas (x, y) y categorías para el consolidado directivo.
+ */
+async function analyzeMapImage(file: File): Promise<AutoScanResult> {
+  return new Promise((resolve) => {
+    const img = document.createElement('img')
+    const objectUrl = URL.createObjectURL(file)
+    img.onload = () => {
+      try {
+        const w = 320
+        const h = Math.max(180, Math.round((img.height / img.width) * w))
+        const canvas = document.createElement('canvas')
+        canvas.width = w
+        canvas.height = h
+        const ctx = canvas.getContext('2d')
+        if (!ctx) {
+          URL.revokeObjectURL(objectUrl)
+          resolve({ counts: {}, hotspots: [] })
+          return
+        }
+        ctx.drawImage(img, 0, 0, w, h)
+        const { data } = ctx.getImageData(0, 0, w, h)
+
+        const cols = 10
+        const rows = 6
+        const cellW = w / cols
+        const cellH = h / rows
+
+        const counts: Record<string, number> = {
+          espacio_cuidado: 0,
+          espacio_transicion: 0,
+          espacio_riesgo: 0,
+          espacio_dialogo: 0,
+          producciones_grafitis: 0,
+        }
+        const hotspots: DetectedHotspot[] = []
+
+        for (let r = 0; r < rows; r++) {
+          for (let c = 0; c < cols; c++) {
+            const cellScores: Record<DetectedHotspot['category'], number> = {
+              cuidado: 0,
+              transicion: 0,
+              riesgo: 0,
+              dialogo: 0,
+              produccion: 0,
+            }
+
+            const startX = Math.floor(c * cellW)
+            const endX = Math.floor((c + 1) * cellW)
+            const startY = Math.floor(r * cellH)
+            const endY = Math.floor((r + 1) * cellH)
+
+            for (let y = startY; y < endY; y++) {
+              for (let x = startX; x < endX; x++) {
+                const idx = (y * w + x) * 4
+                const R = data[idx]
+                const G = data[idx + 1]
+                const B = data[idx + 2]
+
+                const max = Math.max(R, G, B)
+                const min = Math.min(R, G, B)
+                const diff = max - min
+
+                // Ignorar blanco, negro y grises del plano arquitectónico base
+                if (diff < 38 || max < 45) continue
+
+                if (G > R + 25 && G > B + 20) {
+                  cellScores.cuidado++
+                } else if (R > 170 && G > 130 && B < 110) {
+                  cellScores.transicion++
+                } else if (R > G + 45 && R > B + 45) {
+                  cellScores.riesgo++
+                } else if (B > R + 30 && B > G + 15) {
+                  cellScores.dialogo++
+                } else if (R > 120 && B > 120 && G < R - 20) {
+                  cellScores.produccion++
+                }
+              }
+            }
+
+            const entries = Object.entries(cellScores) as [DetectedHotspot['category'], number][]
+            entries.sort((a, b) => b[1] - a[1])
+            const [topCat, topScore] = entries[0]
+
+            // Si hay suficiente concentración de píxeles de color en esta celda, es un símbolo colocado
+            if (topScore >= 14) {
+              hotspots.push({
+                x: Math.round(((c + 0.5) / cols) * 100),
+                y: Math.round(((r + 0.5) / rows) * 100),
+                category: topCat,
+                weight: Math.min(5, Math.ceil(topScore / 25)),
+              })
+
+              if (topCat === 'cuidado') counts.espacio_cuidado++
+              if (topCat === 'transicion') counts.espacio_transicion++
+              if (topCat === 'riesgo') counts.espacio_riesgo++
+              if (topCat === 'dialogo') counts.espacio_dialogo++
+              if (topCat === 'produccion') counts.producciones_grafitis++
+            }
+          }
+        }
+
+        URL.revokeObjectURL(objectUrl)
+        resolve({ counts, hotspots })
+      } catch {
+        URL.revokeObjectURL(objectUrl)
+        resolve({ counts: {}, hotspots: [] })
+      }
+    }
+    img.onerror = () => {
+      URL.revokeObjectURL(objectUrl)
+      resolve({ counts: {}, hotspots: [] })
+    }
+    img.src = objectUrl
+  })
+}
+
+export function cleanDescriptionText(raw: string): string {
+  return String(raw || '').replace(/\[AUTO_SCAN:[\s\S]*?\]/g, '').trim()
+}
+
+export function extractAutoScan(raw: string): AutoScanResult | null {
+  const match = String(raw || '').match(/\[AUTO_SCAN:(\{[\s\S]*?\})\]/)
+  if (!match) return null
+  try {
+    return JSON.parse(match[1]) as AutoScanResult
+  } catch {
+    return null
+  }
+}
+
 const jsonFetcher = async <T,>(url: string): Promise<T> => {
   const res = await fetch(url, { cache: 'no-store' })
   const json = await res.json()
@@ -62,24 +228,66 @@ const jsonFetcher = async <T,>(url: string): Promise<T> => {
   return json.data
 }
 
+function LeyendaSimbolos({ compact = false }: { compact?: boolean }) {
+  const [open, setOpen] = useState(!compact)
+  const categorias = ['Características de los espacios', 'Relaciones y convivencia', 'Otros espacios']
+
+  return (
+    <div className="rounded-2xl border border-[#dce9df] bg-[#f4f8f5] p-4 sm:p-5">
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2 text-[#174b38]">
+          <Info size={17} />
+          <h3 className="text-xs font-bold uppercase tracking-wider">¿Qué significa cada símbolo del mapa?</h3>
+        </div>
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          className="rounded-lg border border-[#c7dcd0] bg-white px-2.5 py-1 text-[11px] font-semibold text-[#174b38] hover:bg-[#edf4ef]"
+        >
+          {open ? 'Ocultar referencias' : 'Ver referencias de símbolos'}
+        </button>
+      </div>
+
+      {open && (
+        <div className="mt-4 space-y-4">
+          {categorias.map((cat) => (
+            <div key={cat}>
+              <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-slate-500">{cat}</p>
+              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                {ICONOS_CONVIVENCIA.filter((ic) => ic.category === cat).map((ic) => (
+                  <div key={ic.id} className="flex items-start gap-2.5 rounded-xl border border-slate-200/80 bg-white p-2.5">
+                    <span className="text-lg leading-none">{ic.emoji}</span>
+                    <div>
+                      <p className="text-xs font-semibold text-slate-900">{ic.label}</p>
+                      <p className="mt-0.5 text-[11px] leading-4 text-slate-500">{ic.desc}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export function StudentPortal({ courses, student, loading = false, error, onEnter, onLogout }: Props) {
   const [name, setName] = useState('')
   const [selectedCourse, setSelectedCourse] = useState('')
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1)
 
-  // Paso 1: Subida y mapas del curso (título estandarizado)
   const [sectorPlano, setSectorPlano] = useState(SECTORES_PLANO[0].id)
   const [filtroSector, setFiltroSector] = useState('TODOS')
   const [file, setFile] = useState<File | null>(null)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+  const [autoScan, setAutoScan] = useState<AutoScanResult | null>(null)
+  const [scanning, setScanning] = useState(false)
   const [description, setDescription] = useState('')
   const [date, setDate] = useState(new Date(Date.now() - new Date().getTimezoneOffset() * 60_000).toISOString().slice(0, 10))
   const [zoomMapUrl, setZoomMapUrl] = useState<string | null>(null)
 
-  // Paso 2: 13 preguntas
   const [respuestas, setRespuestas] = useState<Record<string, string>>({})
-
-  // Paso 3: Matriz 3ra Jornada + Frase de cierre
   const [puntos, setPuntos] = useState<PuntoCritico[]>([
     { situacionIdentificada: '', accionesRealizadas: '', cambiosObservados: '', desafiosPersistentes: '' },
   ])
@@ -94,9 +302,18 @@ export function StudentPortal({ courses, student, loading = false, error, onEnte
   const { data: muroItems, mutate: refreshMuro } = useSWR<MuroItem[]>(student ? '/api/observatory?action=muro' : null, jsonFetcher)
 
   useEffect(() => {
-    if (!file) { setPreviewUrl(null); return }
+    if (!file) {
+      setPreviewUrl(null)
+      setAutoScan(null)
+      return
+    }
     const url = URL.createObjectURL(file)
     setPreviewUrl(url)
+    setScanning(true)
+    analyzeMapImage(file).then((scan) => {
+      setAutoScan(scan)
+      setScanning(false)
+    })
     return () => URL.revokeObjectURL(url)
   }, [file])
 
@@ -135,6 +352,10 @@ export function StudentPortal({ courses, student, loading = false, error, onEnte
         reader.onerror = () => reject(new Error('No se pudo leer la imagen.'))
         reader.readAsDataURL(file)
       })
+
+      const scanPayload = autoScan ? `[AUTO_SCAN:${JSON.stringify(autoScan)}]` : ''
+      const fullDesc = [description.trim(), scanPayload].filter(Boolean).join(' ')
+
       const response = await fetch('/api/observatory', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -144,7 +365,7 @@ export function StudentPortal({ courses, student, loading = false, error, onEnte
             sectorPlano,
             fechaMapeo: date,
             titulo: sectorPlano,
-            descripcion: description,
+            descripcion: fullDesc,
             base64Data,
             fileName: file.name,
             mimeType: file.type,
@@ -153,8 +374,9 @@ export function StudentPortal({ courses, student, loading = false, error, onEnte
       })
       const result = await response.json()
       if (!response.ok) throw new Error(result.error || 'No se pudo enviar el mapa.')
-      setMessage(`¡Mapa "${sectorPlano}" guardado para ${student?.division}!`)
+      setMessage(`¡Mapa "${sectorPlano}" guardado y analizado automáticamente para ${student?.division}!`)
       setFile(null)
+      setAutoScan(null)
       setDescription('')
       await refreshMaps()
     } catch (cause) {
@@ -226,7 +448,6 @@ export function StudentPortal({ courses, student, loading = false, error, onEnte
     }
   }
 
-  // Filtrado doble por seguridad: solo los mapas de la división actual del alumno
   const mapsDelCurso = (courseMaps || []).filter(
     (m) => String(m.DIVISION).trim() === String(student?.division || '').trim()
   )
@@ -291,7 +512,6 @@ export function StudentPortal({ courses, student, loading = false, error, onEnte
           </section>
         ) : (
           <>
-            {/* Cabecera del curso autenticado + Navegación en 4 pasos */}
             <section className="rounded-2xl bg-[#174b38] p-6 text-white sm:p-7">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
@@ -331,27 +551,31 @@ export function StudentPortal({ courses, student, loading = false, error, onEnte
               </p>
             )}
 
-            {/* PASO 1: SUBIR MAPA Y VER LOS MAPAS DE SU PROPIO CURSO */}
+            {/* PASO 1: SUBIR MAPA + DETECCIÓN AUTOMÁTICA + MAPAS DEL CURSO */}
             {step === 1 && (
               <div className="mt-6 space-y-6">
                 <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-                  <h2 className="text-base font-semibold">Recordá los 5 planos relevados en la escuela</h2>
-                  <p className="mt-1 text-xs text-slate-500">Seleccioná a qué plano corresponde el mapa que van a subir para {student.division}:</p>
+                  <h2 className="text-base font-semibold">1. Elegí el plano relevado en la escuela</h2>
+                  <p className="mt-1 text-xs text-slate-500">Seleccioná a qué sector corresponde el mapa que van a subir para {student.division}:</p>
                   <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-5">
                     {SECTORES_PLANO.map((sec) => (
                       <button
                         type="button"
                         key={sec.id}
                         onClick={() => setSectorPlano(sec.id)}
-                        className={`rounded-xl border p-3.5 text-left transition ${
+                        className={`overflow-hidden rounded-xl border text-left transition ${
                           sectorPlano === sec.id
-                            ? 'border-[#174b38] bg-[#edf4ef] ring-1 ring-[#174b38]'
+                            ? 'border-[#174b38] bg-[#edf4ef] ring-2 ring-[#174b38]/40'
                             : 'border-slate-200 bg-[#fafaf8] hover:border-slate-300'
                         }`}
                       >
-                        <MapPin size={16} className={sectorPlano === sec.id ? 'text-[#174b38]' : 'text-slate-400'} />
-                        <p className="mt-2 text-xs font-bold text-slate-900">{sec.titulo}</p>
-                        <p className="text-[11px] text-slate-500">{sec.subtitulo}</p>
+                        <div className="aspect-[16/9] w-full overflow-hidden border-b border-slate-100 bg-white">
+                          <img src={sec.img} alt={sec.id} className="h-full w-full object-cover" />
+                        </div>
+                        <div className="p-3">
+                          <p className="text-xs font-bold text-slate-900">{sec.titulo}</p>
+                          <p className="text-[11px] text-slate-500">{sec.subtitulo}</p>
+                        </div>
                       </button>
                     ))}
                   </div>
@@ -366,9 +590,7 @@ export function StudentPortal({ courses, student, loading = false, error, onEnte
                         className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-800 outline-none focus:border-[#56816a]"
                       >
                         {SECTORES_PLANO.map((sec) => (
-                          <option key={sec.id} value={sec.id}>
-                            {sec.id}
-                          </option>
+                          <option key={sec.id} value={sec.id}>{sec.id}</option>
                         ))}
                       </select>
                     </label>
@@ -377,8 +599,8 @@ export function StudentPortal({ courses, student, loading = false, error, onEnte
                       <input type="date" required value={date} onChange={(e) => setDate(e.target.value)} className="h-10 rounded-lg border border-slate-200 px-3 text-sm" />
                     </label>
                     <label className="flex flex-col gap-1.5 text-xs font-medium text-slate-700 sm:col-span-2">
-                      Observaciones del recorrido / bitácora
-                      <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={2} placeholder="¿Qué íconos o situaciones marcaron en este plano?" className="rounded-lg border border-slate-200 px-3 py-2 text-sm" />
+                      Observaciones del recorrido / bitácora (opcional)
+                      <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={2} placeholder="Describan qué lugares marcaron y por qué..." className="rounded-lg border border-slate-200 px-3 py-2 text-sm" />
                     </label>
                     <label className="flex min-h-28 cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 text-center hover:bg-slate-100 sm:col-span-2">
                       <input type="file" accept="image/png,image/jpeg" className="sr-only" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
@@ -386,12 +608,24 @@ export function StudentPortal({ courses, student, loading = false, error, onEnte
                       <span className="mt-2 text-xs font-semibold text-slate-700">{file?.name || 'Subir imagen del mapa (PNG o JPG)'}</span>
                     </label>
                     {previewUrl && (
-                      <div className="overflow-hidden rounded-xl border border-slate-200 sm:col-span-2">
+                      <div className="space-y-2 overflow-hidden rounded-xl border border-slate-200 p-3 sm:col-span-2">
                         <img src={previewUrl} alt="Vista previa" className="max-h-64 w-full object-contain" />
+                        <div className="flex flex-wrap items-center gap-2 rounded-lg bg-[#f3f8f4] px-3 py-2 text-xs text-[#174b38]">
+                          <Sparkles size={15} className="shrink-0" />
+                          {scanning ? (
+                            <span>Analizando automáticamente los símbolos colocados en el plano…</span>
+                          ) : autoScan && autoScan.hotspots.length > 0 ? (
+                            <span>
+                              <strong>Lectura automática:</strong> se detectaron <strong>{autoScan.hotspots.length}</strong> zonas con símbolos marcados en este plano.
+                            </span>
+                          ) : (
+                            <span>Imagen lista para guardar.</span>
+                          )}
+                        </div>
                       </div>
                     )}
                     <div className="flex justify-end sm:col-span-2">
-                      <button disabled={submitting || !file} className="inline-flex h-10 items-center gap-2 rounded-lg bg-[#174b38] px-5 text-xs font-semibold text-white hover:bg-[#103b2c] disabled:opacity-50">
+                      <button disabled={submitting || scanning || !file} className="inline-flex h-10 items-center gap-2 rounded-lg bg-[#174b38] px-5 text-xs font-semibold text-white hover:bg-[#103b2c] disabled:opacity-50">
                         {submitting ? <LoaderCircle className="animate-spin" size={15} /> : <ArrowRight size={15} />}
                         Guardar mapa de {student.division}
                       </button>
@@ -399,12 +633,15 @@ export function StudentPortal({ courses, student, loading = false, error, onEnte
                   </form>
                 </section>
 
+                {/* Leyenda completa de símbolos para interpretar los mapas */}
+                <LeyendaSimbolos compact={false} />
+
                 {/* Galería exclusiva del curso actual */}
                 <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div>
-                      <h2 className="text-base font-semibold">Visión General: Mapas de {student.division} ({mapsFiltrados.length})</h2>
-                      <p className="mt-0.5 text-xs text-slate-500">Júntense entre los grupos de {student.division} a observar los planos cargados antes de responder las preguntas.</p>
+                      <h2 className="text-base font-semibold">Mapas cargados de {student.division} ({mapsFiltrados.length})</h2>
+                      <p className="mt-0.5 text-xs text-slate-500">Hacé clic en cualquier mapa para ampliarlo y analizar sus símbolos con la guía de arriba.</p>
                     </div>
                     <select value={filtroSector} onChange={(e) => setFiltroSector(e.target.value)} className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-xs font-medium">
                       <option value="TODOS">Todos los planos</option>
@@ -420,6 +657,7 @@ export function StudentPortal({ courses, student, loading = false, error, onEnte
                     <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                       {mapsFiltrados.map((m) => {
                         const imgUrl = `/api/observatory?action=mapImage&idMapa=${encodeURIComponent(m.ID_MAPA)}`
+                        const cleanDesc = cleanDescriptionText(m.DESCRIPCION)
                         return (
                           <button
                             key={m.ID_MAPA}
@@ -436,6 +674,7 @@ export function StudentPortal({ courses, student, loading = false, error, onEnte
                               </span>
                               <p className="mt-1.5 text-xs font-semibold text-slate-900">{m.TITULO}</p>
                               <p className="mt-0.5 text-[11px] text-slate-500">{m.DIVISION} · Turno {m.TURNO}</p>
+                              {cleanDesc && <p className="mt-1.5 line-clamp-2 text-[11px] text-slate-600">{cleanDesc}</p>}
                             </div>
                           </button>
                         )
@@ -452,44 +691,48 @@ export function StudentPortal({ courses, student, loading = false, error, onEnte
               </div>
             )}
 
-            {/* PASO 2: LAS 13 PREGUNTAS DE ANÁLISIS COLECTIVO */}
+            {/* PASO 2: LAS 13 PREGUNTAS DE ANÁLISIS COLECTIVO + LEYENDA DE SÍMBOLOS */}
             {step === 2 && (
-              <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
-                <h2 className="text-lg font-semibold">Análisis colectivo de los mapas ({student.division})</h2>
-                <p className="mt-1 text-xs text-slate-500">A partir de los mapas de su curso, debatan en grupo y respondan:</p>
-                <div className="mt-6 space-y-5">
-                  {PREGUNTAS_ANALISIS.map((preg, idx) => (
-                    <label key={preg.key} className="block rounded-xl border border-slate-200/80 bg-[#fafaf8] p-4">
-                      <span className="text-xs font-semibold leading-5 text-slate-800">
-                        {idx + 1}. {preg.text}
-                      </span>
-                      <textarea
-                        rows={3}
-                        value={respuestas[preg.key] || ''}
-                        onChange={(e) => setRespuestas((prev) => ({ ...prev, [preg.key]: e.target.value }))}
-                        placeholder="Escriban la reflexión del curso..."
-                        className="mt-2 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-[#56816a]"
-                      />
-                    </label>
-                  ))}
-                </div>
-                <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-5">
-                  <button type="button" onClick={() => setStep(1)} className="inline-flex h-10 items-center gap-2 text-xs font-medium text-slate-600">
-                    <ArrowLeft size={15} /> Volver a los mapas
-                  </button>
-                  <div className="flex gap-2">
-                    <button type="button" disabled={submitting} onClick={() => submitAnalisis('BORRADOR')} className="inline-flex h-10 items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 text-xs font-semibold text-slate-700 hover:bg-slate-50">
-                      <Save size={15} /> Guardar borrador
-                    </button>
-                    <button type="button" disabled={submitting} onClick={() => submitAnalisis('ENVIADO')} className="inline-flex h-10 items-center gap-2 rounded-lg bg-[#174b38] px-5 text-xs font-semibold text-white hover:bg-[#103b2c]">
-                      <Send size={15} /> Enviar respuestas y seguir
-                    </button>
+              <div className="mt-6 space-y-6">
+                <LeyendaSimbolos compact={true} />
+
+                <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
+                  <h2 className="text-lg font-semibold">Análisis colectivo de los mapas ({student.division})</h2>
+                  <p className="mt-1 text-xs text-slate-500">A partir de los mapas de su curso y del significado de los símbolos, debatan en grupo y respondan:</p>
+                  <div className="mt-6 space-y-5">
+                    {PREGUNTAS_ANALISIS.map((preg, idx) => (
+                      <label key={preg.key} className="block rounded-xl border border-slate-200/80 bg-[#fafaf8] p-4">
+                        <span className="text-xs font-semibold leading-5 text-slate-800">
+                          {idx + 1}. {preg.text}
+                        </span>
+                        <textarea
+                          rows={3}
+                          value={respuestas[preg.key] || ''}
+                          onChange={(e) => setRespuestas((prev) => ({ ...prev, [preg.key]: e.target.value }))}
+                          placeholder="Escriban la reflexión del curso..."
+                          className="mt-2 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-[#56816a]"
+                        />
+                      </label>
+                    ))}
                   </div>
-                </div>
-              </section>
+                  <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-5">
+                    <button type="button" onClick={() => setStep(1)} className="inline-flex h-10 items-center gap-2 text-xs font-medium text-slate-600">
+                      <ArrowLeft size={15} /> Volver a los mapas
+                    </button>
+                    <div className="flex gap-2">
+                      <button type="button" disabled={submitting} onClick={() => submitAnalisis('BORRADOR')} className="inline-flex h-10 items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 text-xs font-semibold text-slate-700 hover:bg-slate-50">
+                        <Save size={15} /> Guardar borrador
+                      </button>
+                      <button type="button" disabled={submitting} onClick={() => submitAnalisis('ENVIADO')} className="inline-flex h-10 items-center gap-2 rounded-lg bg-[#174b38] px-5 text-xs font-semibold text-white hover:bg-[#103b2c]">
+                        <Send size={15} /> Enviar respuestas y seguir
+                      </button>
+                    </div>
+                  </div>
+                </section>
+              </div>
             )}
 
-            {/* PASO 3: CUESTIONARIO 3RA JORNADA (DEL MAPA A LA ACCIÓN) */}
+            {/* PASO 3: CUESTIONARIO 3RA JORNADA */}
             {step === 3 && (
               <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
                 <div className="flex items-center gap-2 text-[#174b38]">
@@ -588,7 +831,6 @@ export function StudentPortal({ courses, student, loading = false, error, onEnte
                   <Plus size={16} /> Agregar otro punto crítico
                 </button>
 
-                {/* Cierre colectivo */}
                 <div className="mt-7 rounded-2xl border border-[#dce9df] bg-[#f3f8f4] p-5">
                   <div className="flex items-center gap-2 text-[#174b38]">
                     <MessageSquareQuote size={18} />
@@ -646,11 +888,29 @@ export function StudentPortal({ courses, student, loading = false, error, onEnte
         )}
       </div>
 
+      {/* Modal de vista ampliada con referencia de símbolos al costado */}
       {zoomMapUrl && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/75 p-4" onClick={() => setZoomMapUrl(null)}>
-          <button className="absolute right-5 top-5 rounded-full bg-white/15 p-2 text-white" aria-label="Cerrar"><X size={20} /></button>
-          <div className="flex max-h-[85vh] max-w-5xl items-center justify-center" onClick={(e) => e.stopPropagation()}>
-            <img src={zoomMapUrl} alt="Mapa ampliado" className="max-h-[85vh] max-w-full rounded-lg object-contain" />
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-4" onClick={() => setZoomMapUrl(null)}>
+          <button className="absolute right-5 top-5 rounded-full bg-white/15 p-2 text-white hover:bg-white/25" aria-label="Cerrar"><X size={20} /></button>
+          <div className="grid max-h-[90vh] w-full max-w-6xl gap-4 overflow-y-auto rounded-2xl bg-white p-4 lg:grid-cols-[1.6fr_1fr]" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-center rounded-xl bg-slate-100 p-2">
+              <img src={zoomMapUrl} alt="Mapa ampliado" className="max-h-[78vh] w-full object-contain" />
+            </div>
+            <div className="max-h-[78vh] overflow-y-auto pr-1">
+              <h3 className="text-sm font-bold text-[#174b38]">Referencia rápida de símbolos</h3>
+              <p className="mt-0.5 text-xs text-slate-500">Usá esta guía para leer qué representa cada marca en el plano.</p>
+              <div className="mt-3 space-y-2">
+                {ICONOS_CONVIVENCIA.map((ic) => (
+                  <div key={ic.id} className="flex items-start gap-2 rounded-lg border border-slate-100 bg-slate-50/70 p-2">
+                    <span className="text-base leading-none">{ic.emoji}</span>
+                    <div>
+                      <p className="text-xs font-semibold text-slate-800">{ic.label}</p>
+                      <p className="text-[11px] leading-4 text-slate-500">{ic.desc}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
       )}
