@@ -67,12 +67,11 @@ export function StudentPortal({ courses, student, loading = false, error, onEnte
   const [selectedCourse, setSelectedCourse] = useState('')
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1)
 
-  // Paso 1: Subida y mapas del curso
+  // Paso 1: Subida y mapas del curso (título estandarizado)
   const [sectorPlano, setSectorPlano] = useState(SECTORES_PLANO[0].id)
   const [filtroSector, setFiltroSector] = useState('TODOS')
   const [file, setFile] = useState<File | null>(null)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
-  const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [date, setDate] = useState(new Date(Date.now() - new Date().getTimezoneOffset() * 60_000).toISOString().slice(0, 10))
   const [zoomMapUrl, setZoomMapUrl] = useState<string | null>(null)
@@ -136,7 +135,7 @@ export function StudentPortal({ courses, student, loading = false, error, onEnte
           payload: {
             sectorPlano,
             fechaMapeo: date,
-            titulo: title || `${sectorPlano} · ${student?.division}`,
+            titulo: sectorPlano,
             descripcion: description,
             base64Data,
             fileName: file.name,
@@ -146,9 +145,8 @@ export function StudentPortal({ courses, student, loading = false, error, onEnte
       })
       const result = await response.json()
       if (!response.ok) throw new Error(result.error || 'No se pudo enviar el mapa.')
-      setMessage(`¡Mapa guardado para ${student?.division}!`)
+      setMessage(`¡Mapa "${sectorPlano}" guardado para ${student?.division}!`)
       setFile(null)
-      setTitle('')
       setDescription('')
       await refreshMaps()
     } catch (cause) {
@@ -352,8 +350,19 @@ export function StudentPortal({ courses, student, loading = false, error, onEnte
 
                   <form onSubmit={submitMapa} className="mt-6 grid gap-4 border-t border-slate-100 pt-6 sm:grid-cols-2">
                     <label className="flex flex-col gap-1.5 text-xs font-medium text-slate-700">
-                      Título del mapa
-                      <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder={`Ej. ${sectorPlano} - Grupo 1`} className="h-10 rounded-lg border border-slate-200 px-3 text-sm" />
+                      Título del mapa (Plano elegido)
+                      <select
+                        required
+                        value={sectorPlano}
+                        onChange={(e) => setSectorPlano(e.target.value)}
+                        className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-800 outline-none focus:border-[#56816a]"
+                      >
+                        {SECTORES_PLANO.map((sec) => (
+                          <option key={sec.id} value={sec.id}>
+                            {sec.id}
+                          </option>
+                        ))}
+                      </select>
                     </label>
                     <label className="flex flex-col gap-1.5 text-xs font-medium text-slate-700">
                       Fecha del mapeo
@@ -415,7 +424,7 @@ export function StudentPortal({ courses, student, loading = false, error, onEnte
                             </div>
                             <div className="p-3.5">
                               <span className="inline-block rounded-full bg-[#edf4ef] px-2 py-0.5 text-[10px] font-semibold text-[#174b38]">
-                                {m.SECTOR_PLANO || 'Plano escolar'}
+                                {m.SECTOR_PLANO || m.TITULO}
                               </span>
                               <p className="mt-1.5 text-xs font-semibold text-slate-900">{m.TITULO}</p>
                               <p className="mt-0.5 text-[11px] text-slate-500">{m.DIVISION} · Turno {m.TURNO}</p>
