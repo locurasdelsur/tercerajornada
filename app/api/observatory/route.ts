@@ -164,7 +164,6 @@ export async function GET(request: NextRequest) {
       if (!token && !student) return response({ data: [] })
       const filters: Record<string, unknown> = {}
       if (student && !token) {
-        // Los alumnos ven SOLO los mapas de su propio curso y división
         filters.curso = student.course
         filters.division = student.division
       } else {
@@ -182,9 +181,16 @@ export async function GET(request: NextRequest) {
     if (action === 'mapImage') {
       const idMapa = request.nextUrl.searchParams.get('idMapa') || ''
       if (!/^MAP-[A-Z0-9-]{4,80}$/i.test(idMapa)) return response({ error: 'Identificador de mapa inválido.' }, 400)
-      const map = await callGas<{ base64Preview?: string; CURSO?: string; DIVISION?: string }>('obtenerMapa', { idMapa, includeBase64: true }, token)
+      const map = await callGas<{ base64Preview?: string; driveDirectUrl?: string; DIVISION?: string }>(
+        'obtenerMapa',
+        { idMapa, includeBase64: true },
+        token
+      )
       if (student && !token && String(map.DIVISION || '').trim() !== student.division) {
         return response({ error: 'Este mapa pertenece a otro curso.' }, 403)
+      }
+      if (map.driveDirectUrl) {
+        return NextResponse.redirect(map.driveDirectUrl, 302)
       }
       if (!map.base64Preview) return response({ error: 'La imagen no está disponible.' }, 404)
       const commaIndex = map.base64Preview.indexOf(',')
@@ -201,12 +207,17 @@ export async function GET(request: NextRequest) {
 
     if (action === 'session') {
       if (token) {
-        return response({
-          data: {
-            user: { id: 'USR-ADMIN', username: 'Equipo Directivo', role: 'DIRECTIVO', course: '', division: '', shift: '' },
-            accessType: 'director',
-          },
-        })
+        try {
+          const session = await callGas<{ user: Record<string, unknown> }>('validarSesion', {}, token)
+          return response({ data: { user: safeUser(session.user), accessType: 'director' } })
+        } catch {
+          return response({
+            data: {
+              user: { id: 'USR-ADMIN', username: 'Equipo Directivo', role: 'DIRECTIVO', course: '', division: '', shift: '' },
+              accessType: 'director',
+            },
+          })
+        }
       }
       if (student) {
         return response({
