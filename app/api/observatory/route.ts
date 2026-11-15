@@ -68,7 +68,7 @@ async function callGas<T>(action: string, payload: Record<string, unknown> = {},
   try {
     result = JSON.parse(text) as GasEnvelope<T>
   } catch {
-    throw Object.assign(new Error('Apps Script devolvió una respuesta inválida. Verificá la implementación.'), { status: 502 })
+    throw Object.assign(new Error('Apps Script devolvió una respuesta inválida.'), { status: 502 })
   }
   if (!upstream.ok || !result.ok) {
     const message = result.error || 'Apps Script no pudo completar la operación.'
@@ -161,12 +161,19 @@ export async function GET(request: NextRequest) {
     }
 
     if (action === 'maps') {
+      if (!token && !student) return response({ data: [] })
       const filters: Record<string, unknown> = {}
-      const course = request.nextUrl.searchParams.get('curso')
-      const division = request.nextUrl.searchParams.get('division')
+      if (student && !token) {
+        // Los alumnos ven SOLO los mapas de su propio curso y división
+        filters.curso = student.course
+        filters.division = student.division
+      } else {
+        const course = request.nextUrl.searchParams.get('curso')
+        const division = request.nextUrl.searchParams.get('division')
+        if (course) filters.curso = course
+        if (division) filters.division = division
+      }
       const sectorPlano = request.nextUrl.searchParams.get('sectorPlano')
-      if (course) filters.curso = course
-      if (division) filters.division = division
       if (sectorPlano) filters.sectorPlano = sectorPlano
       const maps = await callGas('listarMapas', filters, token)
       return response({ data: maps })
@@ -175,13 +182,20 @@ export async function GET(request: NextRequest) {
     if (action === 'mapImage') {
       const idMapa = request.nextUrl.searchParams.get('idMapa') || ''
       if (!/^MAP-[A-Z0-9-]{4,80}$/i.test(idMapa)) return response({ error: 'Identificador de mapa inválido.' }, 400)
-      const map = await callGas<{ base64Preview?: string }>('obtenerMapa', { idMapa, includeBase64: true }, token)
+      const map = await callGas<{ base64Preview?: string; CURSO?: string; DIVISION?: string }>('obtenerMapa', { idMapa, includeBase64: true }, token)
+      if (student && !token && String(map.DIVISION || '').trim() !== student.division) {
+        return response({ error: 'Este mapa pertenece a otro curso.' }, 403)
+      }
       if (!map.base64Preview) return response({ error: 'La imagen no está disponible.' }, 404)
-      const match = map.base64Preview.match(/^data:(image\/(?:png|jpeg|jpg|webp));base64,([\s\S]+)$/i)
-      if (!match) return response({ error: 'Formato de imagen no permitido.' }, 415)
-      const bytes = Buffer.from(match[2], 'base64')
+      const commaIndex = map.base64Preview.indexOf(',')
+      if (commaIndex === -1) return response({ error: 'Formato de imagen inválido.' }, 415)
+      const header = map.base64Preview.slice(0, commaIndex)
+      const base64Body = map.base64Preview.slice(commaIndex + 1)
+      const mimeMatch = header.match(/^data:(image\/[a-z0-9.+-]+);base64$/i)
+      const mime = mimeMatch ? mimeMatch[1] : 'image/png'
+      const bytes = Buffer.from(base64Body, 'base64')
       return new NextResponse(bytes, {
-        headers: { 'Content-Type': match[1], 'Cache-Control': 'private, max-age=300', 'X-Content-Type-Options': 'nosniff' },
+        headers: { 'Content-Type': mime, 'Cache-Control': 'private, max-age=300', 'X-Content-Type-Options': 'nosniff' },
       })
     }
 
@@ -207,7 +221,7 @@ export async function GET(request: NextRequest) {
 
     if (action === 'records' && (student || token)) {
       const filters: Record<string, unknown> = {}
-      if (student) {
+      if (student && !token) {
         filters.curso = student.course
         filters.division = student.division
       }
@@ -217,7 +231,7 @@ export async function GET(request: NextRequest) {
 
     if (action === 'analisis' && (student || token)) {
       const filters: Record<string, unknown> = {}
-      if (student) {
+      if (student && !token) {
         filters.curso = student.course
         filters.division = student.division
       }
