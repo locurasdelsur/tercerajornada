@@ -264,11 +264,11 @@ export function StudentPortal({ courses, student, loading = false, error, onEnte
                 <input value={name} onChange={(e) => setName(e.target.value)} required minLength={2} maxLength={80} className="h-11 rounded-lg border border-slate-200 px-3 text-sm outline-none focus:border-[#56816a]" placeholder="Ej. Camila Gómez / Grupo 1" />
               </label>
               <label className="flex flex-col gap-1.5 text-xs font-medium text-slate-700">
-                Curso, división y turno
+                Curso y división
                 <select required value={selectedCourse} onChange={(e) => setSelectedCourse(e.target.value)} disabled={loading || courses.length === 0} className="h-11 rounded-lg border border-slate-200 bg-white px-3 text-sm outline-none focus:border-[#56816a]">
                   <option value="">{loading ? 'Cargando cursos…' : 'Elegí tu curso'}</option>
                   {courses.filter((c) => String(c.ACTIVO ?? 'TRUE').toUpperCase() === 'TRUE').map((c) => (
-                    <option key={c.ID_CURSO} value={c.ID_CURSO}>{c.CURSO} {c.DIVISION} · {c.TURNO}</option>
+                    <option key={c.ID_CURSO} value={c.ID_CURSO}>{c.DIVISION}</option>
                   ))}
                 </select>
               </label>
