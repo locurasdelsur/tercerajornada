@@ -4,8 +4,8 @@ import { type FormEvent, useEffect, useState } from 'react'
 import Image from 'next/image'
 import useSWR from 'swr'
 import {
-  ArrowLeft, ArrowRight, CheckCircle2, ClipboardList, FileImage,
-  LoaderCircle, LogOut, MapPin, MessageSquareQuote, Plus, Save, Send, ShieldCheck, Trash2, X,
+  ArrowLeft, ArrowRight, CheckCircle2, ClipboardList, FileImage, Home,
+  LoaderCircle, MapPin, MessageSquareQuote, Plus, Save, Send, ShieldCheck, Trash2, X,
 } from 'lucide-react'
 
 type Course = { ID_CURSO: string; CURSO: string; DIVISION: string; TURNO: string; ACTIVO?: string }
@@ -111,6 +111,14 @@ export function StudentPortal({ courses, student, loading = false, error, onEnte
     } catch (cause) {
       setFormError(cause instanceof Error ? cause.message : 'No se pudo iniciar el recorrido.')
     }
+  }
+
+  function handleGoHome() {
+    setStep(1)
+    setMessage('')
+    setFormError('')
+    onLogout()
+    window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
   async function submitMapa(event: FormEvent<HTMLFormElement>) {
@@ -245,8 +253,8 @@ export function StudentPortal({ courses, student, loading = false, error, onEnte
             </div>
           </div>
           {student && (
-            <button onClick={onLogout} className="inline-flex h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-xs font-medium text-slate-600 hover:bg-slate-50">
-              <LogOut size={15} /> Cambiar curso
+            <button onClick={handleGoHome} className="inline-flex h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3.5 text-xs font-medium text-slate-700 hover:bg-slate-50">
+              <Home size={15} /> Inicio
             </button>
           )}
         </header>
