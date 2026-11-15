@@ -6,7 +6,7 @@ export const dynamic = 'force-dynamic'
 
 const GAS_URL =
   process.env.APPS_SCRIPT_URL ||
-  'https://script.google.com/macros/s/AKfycbwoDLvc-hWjPycLSKEXSOITCxe7ALcYvzjz2eIqy5umf9sLKMKtpN-X6GzyPczOp9JeJg/exec'
+  'https://script.google.com/macros/s/AKfycby5qvFgUkdRWq_Fk5SoNLBkqX_MRifi9AwXxvEYBw9uMl-HCxe14a-yvHm4p_I4ESrZcw/exec'
 const SESSION_COOKIE = 'observatory_session'
 const STUDENT_COOKIE = 'observatory_student'
 const SESSION_MAX_AGE = 8 * 60 * 60
