@@ -67,7 +67,7 @@ export function StudentPortal({ courses, student, loading = false, error, onEnte
   const [selectedCourse, setSelectedCourse] = useState('')
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1)
 
-  // Paso 1: Subida y visión general de mapas
+  // Paso 1: Subida y mapas del curso
   const [sectorPlano, setSectorPlano] = useState(SECTORES_PLANO[0].id)
   const [filtroSector, setFiltroSector] = useState('TODOS')
   const [file, setFile] = useState<File | null>(null)
@@ -90,7 +90,8 @@ export function StudentPortal({ courses, student, loading = false, error, onEnte
   const [message, setMessage] = useState('')
   const [formError, setFormError] = useState('')
 
-  const { data: allMaps, mutate: refreshMaps } = useSWR<MapItem[]>(student ? '/api/observatory?action=maps' : null, jsonFetcher)
+  const mapsKey = student ? `/api/observatory?action=maps&division=${encodeURIComponent(student.division)}` : null
+  const { data: courseMaps, mutate: refreshMaps } = useSWR<MapItem[]>(mapsKey, jsonFetcher)
   const { data: muroItems, mutate: refreshMuro } = useSWR<MuroItem[]>(student ? '/api/observatory?action=muro' : null, jsonFetcher)
 
   useEffect(() => {
@@ -145,7 +146,7 @@ export function StudentPortal({ courses, student, loading = false, error, onEnte
       })
       const result = await response.json()
       if (!response.ok) throw new Error(result.error || 'No se pudo enviar el mapa.')
-      setMessage('¡Mapa publicado en la galería general de la escuela!')
+      setMessage(`¡Mapa guardado para ${student?.division}!`)
       setFile(null)
       setTitle('')
       setDescription('')
@@ -219,7 +220,11 @@ export function StudentPortal({ courses, student, loading = false, error, onEnte
     }
   }
 
-  const mapsFiltrados = (allMaps || []).filter((m) =>
+  // Filtrado doble por seguridad: solo los mapas de la división actual del alumno
+  const mapsDelCurso = (courseMaps || []).filter(
+    (m) => String(m.DIVISION).trim() === String(student?.division || '').trim()
+  )
+  const mapsFiltrados = mapsDelCurso.filter((m) =>
     filtroSector === 'TODOS' ? true : (m.SECTOR_PLANO || '').toLowerCase() === filtroSector.toLowerCase()
   )
 
@@ -284,14 +289,14 @@ export function StudentPortal({ courses, student, loading = false, error, onEnte
             <section className="rounded-2xl bg-[#174b38] p-6 text-white sm:p-7">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
-                  <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-white/70">Sesión activa · Sin revisión previa</p>
+                  <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-white/70">Sesión activa · Curso {student.division}</p>
                   <h1 className="mt-1 text-xl font-semibold sm:text-2xl">{student.division} · Turno {student.shift}</h1>
                   <p className="mt-0.5 text-xs text-white/80">Participante: {student.username}</p>
                 </div>
               </div>
               <div className="mt-6 grid grid-cols-2 gap-2 border-t border-white/15 pt-5 sm:grid-cols-4">
                 {[
-                  { n: 1, label: '1. Mapas y Visión General' },
+                  { n: 1, label: '1. Mapas del Curso' },
                   { n: 2, label: '2. Análisis (13 Preguntas)' },
                   { n: 3, label: '3. Matriz 3ra Jornada' },
                   { n: 4, label: '4. Cartelera Colectiva' },
@@ -320,12 +325,12 @@ export function StudentPortal({ courses, student, loading = false, error, onEnte
               </p>
             )}
 
-            {/* PASO 1: SUBIR MAPA Y RECORDAR LOS 5 PLANOS */}
+            {/* PASO 1: SUBIR MAPA Y VER LOS MAPAS DE SU PROPIO CURSO */}
             {step === 1 && (
               <div className="mt-6 space-y-6">
                 <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
                   <h2 className="text-base font-semibold">Recordá los 5 planos relevados en la escuela</h2>
-                  <p className="mt-1 text-xs text-slate-500">Seleccioná a qué plano corresponde el mapa que van a subir (se publica automáticamente para compartir la visión general):</p>
+                  <p className="mt-1 text-xs text-slate-500">Seleccioná a qué plano corresponde el mapa que van a subir para {student.division}:</p>
                   <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-5">
                     {SECTORES_PLANO.map((sec) => (
                       <button
@@ -365,24 +370,24 @@ export function StudentPortal({ courses, student, loading = false, error, onEnte
                     </label>
                     {previewUrl && (
                       <div className="overflow-hidden rounded-xl border border-slate-200 sm:col-span-2">
-                        <Image src={previewUrl} alt="Vista previa" width={1000} height={600} unoptimized className="max-h-64 w-full object-contain" />
+                        <img src={previewUrl} alt="Vista previa" className="max-h-64 w-full object-contain" />
                       </div>
                     )}
                     <div className="flex justify-end sm:col-span-2">
                       <button disabled={submitting || !file} className="inline-flex h-10 items-center gap-2 rounded-lg bg-[#174b38] px-5 text-xs font-semibold text-white hover:bg-[#103b2c] disabled:opacity-50">
                         {submitting ? <LoaderCircle className="animate-spin" size={15} /> : <ArrowRight size={15} />}
-                        Publicar mapa en la visión general
+                        Guardar mapa de {student.division}
                       </button>
                     </div>
                   </form>
                 </section>
 
-                {/* Galería compartida de todos los mapas cargados */}
+                {/* Galería exclusiva del curso actual */}
                 <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div>
-                      <h2 className="text-base font-semibold">Visión General: Mapas de toda la escuela ({mapsFiltrados.length})</h2>
-                      <p className="mt-0.5 text-xs text-slate-500">Júntense a observar los planos cargados por los distintos cursos antes de responder las preguntas.</p>
+                      <h2 className="text-base font-semibold">Visión General: Mapas de {student.division} ({mapsFiltrados.length})</h2>
+                      <p className="mt-0.5 text-xs text-slate-500">Júntense entre los grupos de {student.division} a observar los planos cargados antes de responder las preguntas.</p>
                     </div>
                     <select value={filtroSector} onChange={(e) => setFiltroSector(e.target.value)} className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-xs font-medium">
                       <option value="TODOS">Todos los planos</option>
@@ -392,7 +397,7 @@ export function StudentPortal({ courses, student, loading = false, error, onEnte
 
                   {mapsFiltrados.length === 0 ? (
                     <p className="mt-6 rounded-xl border border-dashed border-slate-200 py-10 text-center text-xs text-slate-500">
-                      Todavía no hay mapas cargados en este filtro. ¡Suban el primero!
+                      Todavía no hay mapas cargados para {student.division}. ¡Suban el primero arriba!
                     </p>
                   ) : (
                     <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -405,8 +410,8 @@ export function StudentPortal({ courses, student, loading = false, error, onEnte
                             onClick={() => setZoomMapUrl(imgUrl)}
                             className="overflow-hidden rounded-xl border border-slate-200 bg-slate-50/50 text-left transition hover:border-[#56816a] hover:shadow-md"
                           >
-                            <div className="relative aspect-[16/10] bg-slate-100">
-                              <Image src={imgUrl} alt={m.TITULO} fill unoptimized className="object-contain" />
+                            <div className="flex aspect-[16/10] items-center justify-center bg-slate-100">
+                              <img src={imgUrl} alt={m.TITULO} className="h-full w-full object-contain" />
                             </div>
                             <div className="p-3.5">
                               <span className="inline-block rounded-full bg-[#edf4ef] px-2 py-0.5 text-[10px] font-semibold text-[#174b38]">
@@ -433,8 +438,8 @@ export function StudentPortal({ courses, student, loading = false, error, onEnte
             {/* PASO 2: LAS 13 PREGUNTAS DE ANÁLISIS COLECTIVO */}
             {step === 2 && (
               <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
-                <h2 className="text-lg font-semibold">Análisis colectivo de los mapas</h2>
-                <p className="mt-1 text-xs text-slate-500">A partir de la visión general de los mapas de la escuela, debatan en grupo y respondan:</p>
+                <h2 className="text-lg font-semibold">Análisis colectivo de los mapas ({student.division})</h2>
+                <p className="mt-1 text-xs text-slate-500">A partir de los mapas de su curso, debatan en grupo y respondan:</p>
                 <div className="mt-6 space-y-5">
                   {PREGUNTAS_ANALISIS.map((preg, idx) => (
                     <label key={preg.key} className="block rounded-xl border border-slate-200/80 bg-[#fafaf8] p-4">
@@ -627,8 +632,8 @@ export function StudentPortal({ courses, student, loading = false, error, onEnte
       {zoomMapUrl && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/75 p-4" onClick={() => setZoomMapUrl(null)}>
           <button className="absolute right-5 top-5 rounded-full bg-white/15 p-2 text-white" aria-label="Cerrar"><X size={20} /></button>
-          <div className="relative h-[80vh] w-full max-w-5xl" onClick={(e) => e.stopPropagation()}>
-            <Image src={zoomMapUrl} alt="Mapa ampliado" fill unoptimized className="object-contain" />
+          <div className="flex max-h-[85vh] max-w-5xl items-center justify-center" onClick={(e) => e.stopPropagation()}>
+            <img src={zoomMapUrl} alt="Mapa ampliado" className="max-h-[85vh] max-w-full rounded-lg object-contain" />
           </div>
         </div>
       )}
