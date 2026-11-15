@@ -3,11 +3,11 @@
 import { type FormEvent, useMemo, useState } from 'react'
 import useSWR from 'swr'
 import {
-  Activity, AlertCircle, Archive, ArrowRight, BookOpen,
-  CalendarDays, CheckCircle2, ClipboardList, CloudUpload,
-  FileImage, LayoutDashboard, LoaderCircle, LogOut, Menu,
+  Activity, AlertCircle, BookOpen, CalendarDays, CheckCircle2, ClipboardList,
+  CloudUpload, FileImage, Flame, LayoutDashboard, LoaderCircle, LogOut, Menu,
   MessageSquareQuote, MessageSquareText, Plus, Search, ShieldCheck, Users, X,
 } from 'lucide-react'
+import { ICONOS_CONVIVENCIA } from '@/components/student-portal'
 
 type Section =
   | 'Inicio'
@@ -24,12 +24,57 @@ const navItems: { label: Section; icon: typeof LayoutDashboard }[] = [
   { label: 'Agenda institucional 2027', icon: CalendarDays },
 ]
 
-const SECTORES_PLANO = [
-  'Teoría - Planta baja',
-  'Teoría - Planta alta',
-  'Talleres - Planta baja',
-  'Talleres - Planta alta',
-  'Patios - Espacios comunes',
+const PLANOS_ESCUELA = [
+  {
+    id: 'Teoría - Planta baja',
+    short: 'Teoría PB',
+    img: '/planos/teoria-pb.jpg',
+    hotspots: [
+      { x: 24, y: 38, label: 'Ingreso / Preceptoría' },
+      { x: 46, y: 45, label: 'Pasillo central aulas PB' },
+      { x: 74, y: 45, label: 'Aulas sector Gascón' },
+    ],
+  },
+  {
+    id: 'Teoría - Planta alta',
+    short: 'Teoría PA',
+    img: '/planos/teoria-pa.jpg',
+    hotspots: [
+      { x: 35, y: 45, label: 'Escalera y sanitarios PA' },
+      { x: 58, y: 48, label: 'Pasillo aulas Planta Alta' },
+      { x: 80, y: 48, label: 'Aulas extremo derecho' },
+    ],
+  },
+  {
+    id: 'Talleres - Planta baja',
+    short: 'Talleres PB',
+    img: '/planos/talleres-pb.jpg',
+    hotspots: [
+      { x: 22, y: 46, label: 'Nave principal Talleres PB' },
+      { x: 50, y: 48, label: 'Secciones centrales Taller' },
+      { x: 72, y: 42, label: 'Acceso lateral Talleres' },
+    ],
+  },
+  {
+    id: 'Talleres - Planta alta',
+    short: 'Talleres PA',
+    img: '/planos/talleres-pa.jpg',
+    hotspots: [
+      { x: 20, y: 52, label: 'Taller sobre Av. Alsina' },
+      { x: 45, y: 52, label: 'Aulas técnicas Planta Alta' },
+      { x: 67, y: 46, label: 'Núcleo escaleras Taller PA' },
+    ],
+  },
+  {
+    id: 'Patios - Espacios comunes',
+    short: 'Patios',
+    img: '/planos/patios.jpg',
+    hotspots: [
+      { x: 35, y: 65, label: 'Patio central de recreos' },
+      { x: 65, y: 65, label: 'Sector común y circulación' },
+      { x: 50, y: 55, label: 'Punto de encuentro' },
+    ],
+  },
 ]
 
 const PREGUNTAS_LABELS: { key: string; label: string }[] = [
@@ -93,7 +138,7 @@ function Sidebar({ active, onChange, open, onClose }: { active: Section; onChang
         <div className="mt-auto p-4">
           <div className="rounded-xl border border-[#e2eae4] bg-[#f6f9f6] p-4">
             <div className="flex items-center gap-2 text-[#174b38]"><ShieldCheck size={16} /><span className="text-xs font-semibold">Vista Directivos</span></div>
-            <p className="mt-2 text-[11px] leading-5 text-slate-500">Acceso consolidado a los 38 cursos, mapas y acuerdos 2027.</p>
+            <p className="mt-2 text-[11px] leading-5 text-slate-500">Acceso consolidado a los 38 cursos, mapas de calor y acuerdos 2027.</p>
           </div>
         </div>
       </aside>
@@ -118,9 +163,7 @@ type PortalUser = { id: string; username: string; role: string; course: string; 
 type PortalStats = {
   totalCursosActivos: number
   totalMapas: number
-  totalAnalisisCompletados?: number
   totalPuntosCriticos: number
-  totalFrasesLogramos?: number
   totalPropuestas2027: number
   mapasPorEstado: Record<string, number>
 }
@@ -141,7 +184,7 @@ type AgendaItem = {
 }
 
 export function ObservatoryApp({
-  user, stats, maps, courses = [], driveReady, dataError, onUploaded, onLogout,
+  user, stats, maps, courses = [], dataError, onUploaded, onLogout,
 }: {
   user: PortalUser
   stats?: PortalStats
@@ -167,6 +210,7 @@ export function ObservatoryApp({
 
   // Filtros en análisis y registros
   const [divisionFilter, setDivisionFilter] = useState('TODAS')
+  const [heatmapPlano, setHeatmapPlano] = useState(PLANOS_ESCUELA[0].id)
 
   // Estado formulario Agenda 2027
   const [propTitulo, setPropTitulo] = useState('')
@@ -187,6 +231,13 @@ export function ObservatoryApp({
     })
   }, [maps, query, sectorFilter])
 
+  // Datos filtrados por curso para mapas de calor y gráficos en Análisis Institucional
+  const mapsPorFiltroCurso = useMemo(() => {
+    return (maps ?? []).filter((m) =>
+      divisionFilter === 'TODAS' ? true : String(m.DIVISION).trim() === divisionFilter
+    )
+  }, [maps, divisionFilter])
+
   const filteredAnalisis = useMemo(() => {
     return (analisisList ?? []).filter((item) =>
       divisionFilter === 'TODAS' ? true : String(item.DIVISION).trim() === divisionFilter
@@ -198,6 +249,37 @@ export function ObservatoryApp({
       divisionFilter === 'TODAS' ? true : String(item.DIVISION).trim() === divisionFilter
     )
   }, [registrosList, divisionFilter])
+
+  // Cálculo de frecuencia de símbolos/íconos y distribución por plano
+  const resumenSimbolos = useMemo(() => {
+    const counts = ICONOS_CONVIVENCIA.map((ic) => {
+      let total = 0
+      mapsPorFiltroCurso.forEach((m) => {
+        const text = `${m.DESCRIPCION || ''} ${m.TITULO || ''}`.toLowerCase()
+        if (text.includes(ic.label.toLowerCase()) || text.includes(ic.emoji)) total++
+      })
+      filteredAnalisis.forEach((a) => {
+        const allAnswers = Object.values(a).join(' ').toLowerCase()
+        if (allAnswers.includes(ic.label.toLowerCase().split(' ')[0])) total++
+      })
+      return { ...ic, count: total }
+    })
+    return counts.sort((a, b) => b.count - a.count)
+  }, [mapsPorFiltroCurso, filteredAnalisis])
+
+  const resumenPorPlano = useMemo(() => {
+    return PLANOS_ESCUELA.map((pl) => {
+      const count = mapsPorFiltroCurso.filter(
+        (m) => (m.SECTOR_PLANO || m.TITULO || '').toLowerCase() === pl.id.toLowerCase()
+      ).length
+      return { ...pl, count }
+    })
+  }, [mapsPorFiltroCurso])
+
+  const maxPlanoCount = Math.max(1, ...resumenPorPlano.map((p) => p.count))
+  const maxSimboloCount = Math.max(1, ...resumenSimbolos.map((s) => s.count))
+  const activePlanoObj = PLANOS_ESCUELA.find((p) => p.id === heatmapPlano) || PLANOS_ESCUELA[0]
+  const activePlanoCount = resumenPorPlano.find((p) => p.id === heatmapPlano)?.count || 0
 
   async function handleCreatePropuesta(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -316,8 +398,8 @@ export function ObservatoryApp({
                 </button>
                 <button onClick={() => setActive('Análisis institucional')} className="rounded-xl border border-slate-200 bg-white p-5 text-left transition hover:border-[#56816a] hover:shadow-sm">
                   <Activity size={20} className="text-[#174b38]" />
-                  <h2 className="mt-3 text-sm font-semibold">2. Leer análisis por curso ({analisisList?.length ?? 0})</h2>
-                  <p className="mt-1 text-xs leading-5 text-slate-500">Revisar las respuestas de los estudiantes a las 13 preguntas.</p>
+                  <h2 className="mt-3 text-sm font-semibold">2. Mapas de calor y gráficos</h2>
+                  <p className="mt-1 text-xs leading-5 text-slate-500">Explorar lo que más resalta por curso o en toda la escuela.</p>
                 </button>
                 <button onClick={() => setActive('3ra Jornada: Del Mapa a la Acción')} className="rounded-xl border border-slate-200 bg-white p-5 text-left transition hover:border-[#56816a] hover:shadow-sm">
                   <ClipboardList size={20} className="text-[#174b38]" />
@@ -351,7 +433,7 @@ export function ObservatoryApp({
                 </label>
                 <select value={sectorFilter} onChange={(e) => setSectorFilter(e.target.value)} className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700">
                   <option value="TODOS">Todos los planos</option>
-                  {SECTORES_PLANO.map((s) => <option key={s} value={s}>{s}</option>)}
+                  {PLANOS_ESCUELA.map((s) => <option key={s.id} value={s.id}>{s.id}</option>)}
                 </select>
               </div>
 
@@ -388,55 +470,188 @@ export function ObservatoryApp({
             </>
           )}
 
-          {/* ========================================== */}
-          {/* SECCIÓN 3: ANÁLISIS INSTITUCIONAL (13 P.)  */}
-          {/* ========================================== */}
+          {/* ========================================================== */}
+          {/* SECCIÓN 3: ANÁLISIS INSTITUCIONAL (MAPAS DE CALOR + GRÁF.) */}
+          {/* ========================================================== */}
           {active === 'Análisis institucional' && (
-            <>
+            <div className="space-y-6">
               <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
                 <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.15em] text-[#56816a]">E.E.S.T. N.º 6 · Reflexiones por curso</p>
-                  <h1 className="mt-2 text-[26px] font-semibold tracking-tight">Análisis institucional ({filteredAnalisis.length})</h1>
-                  <p className="mt-1.5 text-sm text-slate-500">Respuestas de los cursos a las 13 preguntas sobre los mapas de convivencia.</p>
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.15em] text-[#56816a]">E.E.S.T. N.º 6 · Síntesis Visual y Cartográfica</p>
+                  <h1 className="mt-2 text-[26px] font-semibold tracking-tight">Análisis institucional</h1>
+                  <p className="mt-1.5 text-sm text-slate-500">Resumen gráfico de los planos, símbolos destacados y reflexiones por curso o de toda la escuela.</p>
                 </div>
-                <select value={divisionFilter} onChange={(e) => setDivisionFilter(e.target.value)} className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-xs font-medium">
-                  <option value="TODAS">Todos los cursos</option>
-                  {courses.map((c) => <option key={c.ID_CURSO} value={c.DIVISION}>{c.DIVISION} ({c.TURNO})</option>)}
-                </select>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-medium text-slate-500">Filtrar:</span>
+                  <select value={divisionFilter} onChange={(e) => setDivisionFilter(e.target.value)} className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-[#174b38]">
+                    <option value="TODAS">Todos los cursos (Escuela completa)</option>
+                    {courses.map((c) => <option key={c.ID_CURSO} value={c.DIVISION}>{c.DIVISION} · {c.TURNO}</option>)}
+                  </select>
+                </div>
               </div>
 
-              {filteredAnalisis.length === 0 ? (
-                <div className="mt-6 rounded-xl border border-dashed border-slate-200 bg-white p-10 text-center text-xs text-slate-500">
-                  Aún no hay respuestas cargadas en el cuestionario de 13 preguntas para esta selección.
-                </div>
-              ) : (
-                <div className="mt-6 space-y-5">
-                  {filteredAnalisis.map((item, idx) => (
-                    <article key={item.ID_ANALISIS || idx} className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-                      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-4">
-                        <div>
-                          <span className="rounded-full bg-[#174b38] px-3 py-1 text-xs font-semibold text-white">{item.DIVISION} · Turno {item.TURNO}</span>
-                          <span className="ml-2 text-xs text-slate-400">{item.FECHA_HORA ? new Date(item.FECHA_HORA).toLocaleString('es-AR') : ''}</span>
-                        </div>
-                        <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-semibold text-slate-600">{item.ESTADO}</span>
+              {/* TABLERO VISUAL: MAPA DE CALOR SOBRE LOS 5 PLANOS + GRÁFICOS DE RESUMEN */}
+              <div className="grid gap-5 xl:grid-cols-[1.45fr_1fr]">
+                {/* Mapa interactivo sobre los 5 planos originales */}
+                <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                  <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-4">
+                    <div className="flex items-center gap-2">
+                      <Flame size={18} className="text-amber-600" />
+                      <div>
+                        <h2 className="text-sm font-bold text-slate-900">Mapa de densidad por sector escolar</h2>
+                        <p className="text-[11px] text-slate-500">Seleccioná un plano para ver la concentración de relevamientos ({divisionFilter === 'TODAS' ? 'Todos los cursos' : divisionFilter})</p>
                       </div>
-                      <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                        {PREGUNTAS_LABELS.map((p) => {
-                          const answer = item[p.key]
-                          if (!answer) return null
-                          return (
-                            <div key={p.key} className="rounded-xl bg-[#fafaf8] p-3.5">
-                              <p className="text-[11px] font-semibold text-[#174b38]">{p.label}</p>
-                              <p className="mt-1 text-xs leading-5 text-slate-700">{answer}</p>
+                    </div>
+                    <span className="rounded-full bg-[#edf4ef] px-3 py-1 text-xs font-bold text-[#174b38]">
+                      {activePlanoCount} {activePlanoCount === 1 ? 'mapa cargado' : 'mapas cargados'}
+                    </span>
+                  </div>
+
+                  {/* Selector de los 5 planos */}
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    {resumenPorPlano.map((pl) => (
+                      <button
+                        key={pl.id}
+                        type="button"
+                        onClick={() => setHeatmapPlano(pl.id)}
+                        className={`rounded-lg border px-3 py-1.5 text-xs font-semibold transition ${
+                          heatmapPlano === pl.id
+                            ? 'border-[#174b38] bg-[#174b38] text-white'
+                            : 'border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100'
+                        }`}
+                      >
+                        {pl.short} ({pl.count})
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Plano arquitectónico con capas de calor */}
+                  <div className="relative mt-4 overflow-hidden rounded-xl border border-slate-200 bg-white">
+                    <img src={activePlanoObj.img} alt={activePlanoObj.id} className="w-full object-contain" />
+                    {activePlanoCount > 0 &&
+                      activePlanoObj.hotspots.map((spot, idx) => {
+                        const intensity = Math.min(1, 0.35 + activePlanoCount * 0.15)
+                        const size = Math.min(150, 75 + activePlanoCount * 16)
+                        return (
+                          <div
+                            key={idx}
+                            style={{
+                              left: `${spot.x}%`,
+                              top: `${spot.y}%`,
+                              width: `${size}px`,
+                              height: `${size}px`,
+                              transform: 'translate(-50%, -50%)',
+                              background:
+                                idx === 0
+                                  ? `radial-gradient(circle, rgba(239,68,68,${intensity}) 0%, rgba(245,158,11,${intensity * 0.6}) 45%, rgba(16,185,129,0) 72%)`
+                                  : `radial-gradient(circle, rgba(16,185,129,${intensity}) 0%, rgba(59,130,246,${intensity * 0.5}) 48%, rgba(16,185,129,0) 72%)`,
+                            }}
+                            title={`${spot.label} (${activePlanoCount} registros)`}
+                            className="pointer-events-none absolute rounded-full blur-[2px]"
+                          />
+                        )
+                      })}
+                    <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 bg-slate-50/90 px-4 py-2.5 text-[11px] text-slate-600">
+                      <span className="font-semibold">{activePlanoObj.id}</span>
+                      <div className="flex items-center gap-3">
+                        <span className="flex items-center gap-1"><span className="size-2.5 rounded-full bg-emerald-500" /> Cuidado / Encuentro</span>
+                        <span className="flex items-center gap-1"><span className="size-2.5 rounded-full bg-amber-500" /> Transición</span>
+                        <span className="flex items-center gap-1"><span className="size-2.5 rounded-full bg-red-500" /> Tensión / Atención</span>
+                      </div>
+                    </div>
+                  </div>
+                </section>
+
+                {/* Gráficos de barras resumidos */}
+                <div className="space-y-5">
+                  {/* Gráfico 1: Símbolos que más aparecen */}
+                  <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                    <h2 className="text-sm font-bold text-slate-900">Símbolos que más resaltan en los mapas</h2>
+                    <p className="mt-0.5 text-[11px] text-slate-500">Frecuencia de aparición según las marcas y análisis de los cursos</p>
+                    <div className="mt-4 space-y-2.5">
+                      {resumenSimbolos.slice(0, 7).map((ic) => {
+                        const pct = ic.count > 0 ? Math.max(12, Math.round((ic.count / maxSimboloCount) * 100)) : 4
+                        return (
+                          <div key={ic.id}>
+                            <div className="flex items-center justify-between text-xs">
+                              <span className="font-medium text-slate-700">{ic.emoji} {ic.label}</span>
+                              <span className="font-bold text-[#174b38]">{ic.count}</span>
                             </div>
-                          )
-                        })}
-                      </div>
-                    </article>
-                  ))}
+                            <div className="mt-1 h-2 w-full overflow-hidden rounded-full bg-slate-100">
+                              <div
+                                style={{ width: `${pct}%` }}
+                                className={`h-full rounded-full ${ic.count > 0 ? 'bg-[#174b38]' : 'bg-slate-200'}`}
+                              />
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </section>
+
+                  {/* Gráfico 2: Distribución de mapas por sector/plano */}
+                  <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                    <h2 className="text-sm font-bold text-slate-900">Distribución de mapas por sector</h2>
+                    <p className="mt-0.5 text-[11px] text-slate-500">Cantidad de planos relevados en cada edificio</p>
+                    <div className="mt-4 space-y-2.5">
+                      {resumenPorPlano.map((pl) => {
+                        const pct = pl.count > 0 ? Math.max(12, Math.round((pl.count / maxPlanoCount) * 100)) : 4
+                        return (
+                          <div key={pl.id}>
+                            <div className="flex items-center justify-between text-xs">
+                              <span className="font-medium text-slate-700">{pl.id}</span>
+                              <span className="font-bold text-[#356b4f]">{pl.count}</span>
+                            </div>
+                            <div className="mt-1 h-2 w-full overflow-hidden rounded-full bg-slate-100">
+                              <div
+                                style={{ width: `${pct}%` }}
+                                className={`h-full rounded-full ${pl.count > 0 ? 'bg-[#56816a]' : 'bg-slate-200'}`}
+                              />
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </section>
                 </div>
-              )}
-            </>
+              </div>
+
+              {/* Respuestas textuales de las 13 preguntas */}
+              <section>
+                <h2 className="mb-3 text-base font-semibold text-slate-900">Reflexiones colectivas de las 13 preguntas ({filteredAnalisis.length})</h2>
+                {filteredAnalisis.length === 0 ? (
+                  <div className="rounded-xl border border-dashed border-slate-200 bg-white p-10 text-center text-xs text-slate-500">
+                    Aún no hay respuestas cargadas en el cuestionario de 13 preguntas para esta selección.
+                  </div>
+                ) : (
+                  <div className="space-y-5">
+                    {filteredAnalisis.map((item, idx) => (
+                      <article key={item.ID_ANALISIS || idx} className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+                        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-4">
+                          <div>
+                            <span className="rounded-full bg-[#174b38] px-3 py-1 text-xs font-semibold text-white">{item.DIVISION} · Turno {item.TURNO}</span>
+                            <span className="ml-2 text-xs text-slate-400">{item.FECHA_HORA ? new Date(item.FECHA_HORA).toLocaleString('es-AR') : ''}</span>
+                          </div>
+                          <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-semibold text-slate-600">{item.ESTADO}</span>
+                        </div>
+                        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                          {PREGUNTAS_LABELS.map((p) => {
+                            const answer = item[p.key]
+                            if (!answer) return null
+                            return (
+                              <div key={p.key} className="rounded-xl bg-[#fafaf8] p-3.5">
+                                <p className="text-[11px] font-semibold text-[#174b38]">{p.label}</p>
+                                <p className="mt-1 text-xs leading-5 text-slate-700">{answer}</p>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+                )}
+              </section>
+            </div>
           )}
 
           {/* ========================================== */}
@@ -456,7 +671,6 @@ export function ObservatoryApp({
                 </select>
               </div>
 
-              {/* Muro de cierre */}
               <section className="mt-6 rounded-2xl border border-[#dce9df] bg-[#f3f8f4] p-6">
                 <div className="flex items-center gap-2 text-[#174b38]">
                   <MessageSquareQuote size={18} />
@@ -476,7 +690,6 @@ export function ObservatoryApp({
                 )}
               </section>
 
-              {/* Tabla de puntos críticos */}
               <section className="mt-6 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
                 <div className="border-b border-slate-100 px-6 py-4">
                   <h2 className="text-sm font-semibold">Matriz consolidada por curso ({filteredRegistros.length} registros)</h2>
@@ -613,7 +826,7 @@ function UploadDialog({ onClose, courses, onUploaded }: { onClose: () => void; c
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
   const [selectedCourse, setSelectedCourse] = useState('')
-  const [sectorPlano, setSectorPlano] = useState(SECTORES_PLANO[0])
+  const [sectorPlano, setSectorPlano] = useState(PLANOS_ESCUELA[0].id)
   const [date, setDate] = useState(new Date(Date.now() - new Date().getTimezoneOffset() * 60_000).toISOString().slice(0, 10))
 
   async function submit(event: FormEvent<HTMLFormElement>) {
@@ -676,7 +889,7 @@ function UploadDialog({ onClose, courses, onUploaded }: { onClose: () => void; c
             <label className="flex flex-col gap-1.5 text-xs font-medium text-slate-700">
               Plano / Título
               <select value={sectorPlano} onChange={(e) => setSectorPlano(e.target.value)} className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-xs">
-                {SECTORES_PLANO.map((s) => <option key={s} value={s}>{s}</option>)}
+                {PLANOS_ESCUELA.map((s) => <option key={s.id} value={s.id}>{s.id}</option>)}
               </select>
             </label>
             <label className="flex flex-col gap-1.5 text-xs font-medium text-slate-700">
